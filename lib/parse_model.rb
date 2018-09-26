@@ -193,6 +193,7 @@ class ParseModel
   def self.set_options(query, select_manager)
     query.limit = select_manager.limit.limit if select_manager.limit
     query.skip = select_manager.offset.offset if select_manager.offset
+    query.count if select_manager.count
     if select_manager.ordering
       order_str = select_manager.ordering.order_str
       if m = /(\w+)\s+(DESC|ASC)/.match(order_str)
@@ -255,10 +256,14 @@ class ParseModel
   end
 
   def self.wrap_result(result)
-    result.map do |r|
-      r = self.new(r)
-      r.after_load
-      r
+    if result.is_a?(Hash)
+      result["count"]
+    else
+      result.map do |r|
+        r = self.new(r)
+        r.after_load
+        r
+      end
     end
   end
 
@@ -289,7 +294,7 @@ class ParseModel
   end
 
   def self.method_missing(sym, *args)
-    if [:first, :last, :all, :where, :limit, :order, :offset].include?(sym)
+    if [:first, :last, :all, :count, :where, :limit, :order, :offset].include?(sym)
       MiniArel::Relation.new(self, self, @parse_class_name).send(sym, *args)
     else
       super

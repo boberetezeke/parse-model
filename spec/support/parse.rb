@@ -2,7 +2,7 @@ require "yaml"
 
 def parse_initialize(logger_level = Logger::ERROR)
   config = YAML::load(File.open("config/application.yml"))
-  puts "config: #{config}"
+  # puts "config: #{config}"
   ParseModel.initialize(
     application_id: config['TEST_PARSE_APPLICATION_ID'], host: config['TEST_PARSE_HOST'], master_key: config['TEST_PARSE_MASTER_KEY'],
     logger_level: logger_level)

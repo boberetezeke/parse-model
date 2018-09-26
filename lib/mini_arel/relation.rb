@@ -40,6 +40,12 @@ module MiniArel
       self
     end
 
+    def count
+      @select_manager.limit = MiniArel::Nodes::Limit.new(0)
+      @select_manager.count = MiniArel::Nodes::Count.new
+      execute
+    end
+
     def first
       execute.first
     end
