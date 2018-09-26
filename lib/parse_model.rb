@@ -1,26 +1,6 @@
 require "active_model"
-require_relative "mini_arel/collection_proxy"
-require_relative "mini_arel/relation"
-require_relative "mini_arel/select_manager"
-require_relative "mini_arel/nodes/terminal"
-require_relative "mini_arel/nodes/literal"
-require_relative "mini_arel/nodes/binary_op"
-
-require_relative "mini_arel/nodes/and"
-require_relative "mini_arel/nodes/or"
-require_relative "mini_arel/nodes/offset"
-require_relative "mini_arel/nodes/equality"
-
-require_relative "mini_arel/nodes/ordering"
-require_relative "mini_arel/nodes/symbol"
-require_relative "mini_arel/nodes/limit"
-
-require_relative "mini_arel/nodes/not_equal"
-require_relative "mini_arel/nodes/greater_than_or_equal"
-require_relative "mini_arel/nodes/greater_than"
-require_relative "mini_arel/nodes/less_than_or_equal"
-require_relative "mini_arel/nodes/less_than"
-require_relative "mini_arel/nodes/ordering"
+require "parse-ruby-client"
+require_relative "mini_arel"
 
 class ParseModel
   include ActiveModel::Model
@@ -106,16 +86,16 @@ class ParseModel
     end
   end
 
-  def self.initialize(application_id: nil, host: nil, master_key: nil, logger_level: Logger::INFO)
+  def self.initialize(application_id: nil, host: nil, master_key: nil, logger: nil, logger_level: Logger::ERROR)
     return if defined?(@@initialized)
 
     application_id ||= ENV['PARSE_APPLICATION_ID']
     host ||= ENV['PARSE_HOST']
     master_key ||= ENV['PARSE_MASTER_KEY']
-    logger = Logger.new(STDERR).tap { |l| l.level = logger_level }
+    logger = Logger.new(STDERR).tap { |l| l.level = logger_level } unless logger
 
+    logger.info "parse host: #{host}"
     # Parse.init :application_id => ENV['PARSE_APPLICATION_ID'], :api_key => ENV['PARSE_API_KEY']
-    puts "initializing with application id: #{application_id}, host: #{host}, master_key: #{master_key}"
     @@client = Parse.create :application_id => application_id, :host => host, :master_key =>  master_key, :logger => logger
     @@initialized = true
   end
@@ -171,7 +151,7 @@ class ParseModel
         else
           raise "one node should be a symbol and one a literal: #{node.left_node.class}, #{node.right_node.class}"
         end
-        
+
         symbol = camelize(symbol)
         query = self.query
         if node.is_a?(MiniArel::Nodes::Equality)
@@ -193,7 +173,7 @@ class ParseModel
         end
       elsif node.is_a?(MiniArel::Nodes::Or)
         query = query1
-        query.or(query2) 
+        query.or(query2)
       elsif node.is_a?(MiniArel::Nodes::And)
         query = query1
         (query.where.keys + query2.where.keys).uniq.each do |k|
@@ -245,7 +225,7 @@ class ParseModel
         query.or(query2)
       elsif pointer_values.size > 2
        raise "maximum 2 facilities allowed"
-      end 
+      end
     end
 
     set_options(query, select_manager)
