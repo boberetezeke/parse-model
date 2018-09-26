@@ -1,5 +1,5 @@
 Gem::Specification.new do |s|
-  s.name        = 'parse_model'
+  s.name        = 'parse-model'
   s.version     = '0.0.1'
   s.date        = '2015-12-03'
   s.summary     = "An active record like library for parse"
@@ -9,6 +9,6 @@ Gem::Specification.new do |s|
   s.files       = Dir["lib/*"]
   s.license     = 'MIT'
 
-  s.add_dependency 'activesupport', '~> 4.0'
-  s.add_dependency 'activemodel',   '~> 4.0'
+  s.add_dependency 'activesupport', '~> 5.2'
+  s.add_dependency 'activemodel',   '~> 5.2'
 end
