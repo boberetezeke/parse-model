@@ -8,13 +8,16 @@ class ParseModel
   class Attribute
     attr_reader :name, :type
 
-    def initialize(name, type, pointer_class=nil)
+    def initialize(name, type, pointer_class: nil, camelized_name: nil)
       @name = name
       @type = type
       @pointer_class = pointer_class
+      @camelized_name = camelized_name
     end
 
     def camelized_name
+      return @camelized_name if @camelized_name
+
       camelized_name = @name.to_s.camelize
       camelized_name[0..0].downcase + camelized_name[1..-1]
     end
@@ -51,6 +54,14 @@ class ParseModel
       end
     end
 
+    def set(parse_object, value)
+      parse_object[camelized_name]=(to_parse_value(value))
+    end
+
+    def get(parse_object)
+      from_parse_value(parse_object[camelized_name])
+    end
+
     def eq(value)
       MiniArel::Nodes::Equality.new(MiniArel::Nodes::Symbol.new(name), MiniArel::Nodes::Literal.new(value))
     end
@@ -73,6 +84,35 @@ class ParseModel
 
     def lteq(value)
       MiniArel::Nodes::LessThanOrEqual.new(MiniArel::Nodes::Symbol.new(name), MiniArel::Nodes::Literal.new(value))
+    end
+  end
+
+  class Association
+    attr_reader :name, :type, :class_name
+
+    def initialize(container_klass, name, type, class_name: nil, foreign_key: foreign_key)
+      @name = name
+      @type = type
+      @container_klass = container_klass
+      @class_name = class_name || name.to_s.singularize.camelize
+      @foreign_key = foreign_key
+    end
+
+    def klass
+      @klass || @klass = @class_name.constantize
+    end
+
+    def foreign_key
+      @foreign_key || @foreign_key = "#{@container_klass.to_s.underscore}_id"
+    end
+
+    def table_name
+      @class_name
+    end
+
+    def get(object)
+      relation = MiniArel::Relation.new(klass, klass, @class_name)
+      relation.where({foreign_key => object.id})
     end
   end
 
@@ -106,9 +146,14 @@ class ParseModel
   end
 
   # methods for sub-classes
-  def self.attribute(name, type, pointer_class=nil)
+  def self.attribute(name, type, pointer_class: nil, camelized_name: nil)
     @attributes ||= {}
-    @attributes[name] = Attribute.new(name, type, pointer_class)
+    @attributes[name] = Attribute.new(name, type, pointer_class: pointer_class, camelized_name: camelized_name)
+  end
+
+  def self.has_many(sym, **hargs)
+    @associations ||= {}
+    @associations[sym] = Association.new(self, sym, :has_many, **hargs)
   end
 
   def self.class_name(name)
@@ -123,6 +168,10 @@ class ParseModel
   # accessor methods
   def self.attributes
     @attributes
+  end
+
+  def self.associations
+    @associations
   end
 
   def self.parse_class_name
@@ -379,14 +428,13 @@ class ParseModel
     end
 
     if attribute_name
-      attribute = self.class.attributes[attribute_name.to_sym]
-      if attribute
-        if action == :set
-          return @parse_object[attribute.camelized_name]=(attribute.to_parse_value(value))
-        else
-          return attribute.from_parse_value(@parse_object[attribute.camelized_name])
-        end
-      end
+      attribute_sym = attribute_name.to_sym
+
+      attribute = self.class.attributes[attribute_sym]
+      return (action == :set) ? attribute.set(@parse_model, value) : attribute.get(@parse_object) if attribute
+
+      association = self.class.associations[attribute_sym]
+      return (action == :set) ? association.set(value) : association.get(self) if association
     end
 
     super(sym, *args, &block)
