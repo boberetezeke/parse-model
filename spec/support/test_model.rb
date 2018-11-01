@@ -14,5 +14,6 @@ class TestInstance < ParseModel
   class_name "TestInstance"
 
   attribute(:instance_integer_value, :integer)
-  attribute(:test_model_id, :pointer, pointer_class: TestModel)
+
+  belongs_to :test_model
 end

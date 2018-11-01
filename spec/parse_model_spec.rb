@@ -102,8 +102,16 @@ describe ParseModel do
       end
     end
 
+    context "when running with a belongs_to" do
+      it "allows retrieval of correct object" do
+        test_instance = TestInstance.where(instance_integer_value: 13).first
+        test_model =    TestModel.where(integer_value: 3).first
+        expect(test_instance.test_model).to eq(test_model)
+      end
+    end
+
     context "when running with a has_many" do
-      it "allows retrieval of has_many relationships" do
+      it "allows retrieval of simple has_many relationships" do
         test_model = TestModel.where(integer_value: 2).first
         expect(test_model.test_instances.all.size).to eq(2)
       end

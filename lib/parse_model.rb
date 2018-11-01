@@ -48,7 +48,11 @@ class ParseModel
       elsif @type == :pointer
       #  value["className"].constantize.find(value["objectId"])
       #  value.className.constantize.find(value.parse_object_id)
-        value = value.parse_object_id if value.is_a?(Parse::Pointer)
+        if value.is_a?(Parse::Pointer)
+          value = value.parse_object_id
+        else
+          value
+        end
       else
         value
       end
@@ -103,7 +107,12 @@ class ParseModel
     end
 
     def foreign_key
-      @foreign_key || @foreign_key = "#{@container_klass.to_s.underscore}_id"
+      return @foreign_key if @foreign_key
+      if @type == :has_many
+        @foreign_key = "#{@container_klass.to_s.underscore}_id"
+      else
+        @foreign_key = "#{@class_name.to_s.underscore}_id"
+      end
     end
 
     def table_name
@@ -111,8 +120,14 @@ class ParseModel
     end
 
     def get(object)
-      relation = MiniArel::Relation.new(klass, klass, @class_name)
-      relation.where({foreign_key => object.id})
+      if @type == :has_many
+        relation = MiniArel::Relation.new(klass, klass, @class_name)
+        relation.where({foreign_key => object.id})
+      else
+        id = object.send(foreign_key)
+        relation = MiniArel::Relation.new(klass, klass, @class_name)
+        relation.where({objectId: object.send(foreign_key)}).first
+      end
     end
   end
 
@@ -154,6 +169,13 @@ class ParseModel
   def self.has_many(sym, **hargs)
     @associations ||= {}
     @associations[sym] = Association.new(self, sym, :has_many, **hargs)
+  end
+
+  def self.belongs_to(sym, **hargs)
+    @associations ||= {}
+    association = Association.new(self, sym, :belongs_to, **hargs)
+    @associations[sym] = association
+    attribute(association.foreign_key.to_sym, :pointer, pointer_class: self)
   end
 
   def self.class_name(name)
