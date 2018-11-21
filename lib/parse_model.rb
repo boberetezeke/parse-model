@@ -148,11 +148,20 @@ class ParseModel
     host ||= ENV['PARSE_HOST']
     master_key ||= ENV['PARSE_MASTER_KEY']
     logger = Logger.new(STDERR).tap { |l| l.level = logger_level } unless logger
+    @logger = logger
 
     logger.info "parse host: #{host}"
     # Parse.init :application_id => ENV['PARSE_APPLICATION_ID'], :api_key => ENV['PARSE_API_KEY']
     @@client = Parse.create :application_id => application_id, :host => host, :master_key =>  master_key, :logger => logger
     @@initialized = true
+  end
+
+  def self.logger
+    @logger
+  end
+
+  def self.log(str)
+    @logger.debug "** ParseModel ** :[#{str}]"
   end
 
   def self.client
@@ -205,12 +214,17 @@ class ParseModel
     symbol[0..0].downcase + symbol[1..-1]
   end
 
-  def self.visit(node, options={})
+  def self.visit(node, select_manager)
+    ParseModel.log "visit #{node}"
     if node.nil?
-      return self.query
+      ParseModel.log "visit node.nil?"
+      return select_manager.query
     elsif !(node.terminal?)
-      query1 = visit(node.left_node, query)
-      query2 = visit(node.right_node, query)
+      ParseModel.log "visit !(node.terminal?)"
+      query1 = visit(node.left_node, select_manager)
+      ParseModel.log "visit query1 #{query1}"
+      query2 = visit(node.right_node, select_manager)
+      ParseModel.log "visit query2 #{query1}"
 
       if node.is_comparison?
         if node.left_node.is_a?(MiniArel::Nodes::Symbol) && node.right_node.is_a?(MiniArel::Nodes::Literal)
@@ -224,18 +238,24 @@ class ParseModel
         end
 
         symbol = camelize(symbol)
-        query = self.query
+        query = select_manager.query
         if node.is_a?(MiniArel::Nodes::Equality)
+          ParseModel.log "query.eq(#{symbol}, #{literal})"
           query.eq(symbol, literal)
         elsif node.is_a?(MiniArel::Nodes::NotEqual)
+          ParseModel.log "query.not_eq(#{symbol}, #{literal})"
           query.not_eq(symbol, literal)
         elsif node.is_a?(MiniArel::Nodes::GreaterThan)
+          ParseModel.log "query.greater_than(#{symbol}, #{literal})"
           query.greater_than(symbol, literal)
         elsif node.is_a?(MiniArel::Nodes::GreaterThanOrEqual)
+          ParseModel.log "query.greater_eq(#{symbol}, #{literal})"
           query.greater_eq(symbol, literal)
         elsif node.is_a?(MiniArel::Nodes::LessThan)
+          ParseModel.log "query.less_than(#{symbol}, #{literal})"
           query.less_than(symbol, literal)
         elsif node.is_a?(MiniArel::Nodes::LessThanOrEqual)
+          ParseModel.log "query.less_eq(#{symbol}, #{literal})"
           query.less_eq(symbol, literal)
         #elsif node.is_a?(MiniArel::Nodes::ValueIn)
         #  query.value_in(symbol_node.value.to_s, literal_node.value)
@@ -245,7 +265,9 @@ class ParseModel
       elsif node.is_a?(MiniArel::Nodes::Or)
         query = query1
         query.or(query2)
+        ParseModel.log "query(#{query1}).or(#{query2})"
       elsif node.is_a?(MiniArel::Nodes::And)
+        ParseModel.log "query(#{query}).and"
         query = query1
         (query.where.keys + query2.where.keys).uniq.each do |k|
           if query.where[k] && query2.where[k]
@@ -281,7 +303,8 @@ class ParseModel
 
   def self.execute(select_manager)
     options = {}
-    query = visit(select_manager.node, options)
+    query = visit(select_manager.node, select_manager)
+
 
     if pointer_comparisons
       pointer_name = pointer_comparisons.keys.first
@@ -338,8 +361,8 @@ class ParseModel
     end
   end
 
-  def self.query
-    client.query(@parse_class_name)
+  def self.query(class_name)
+    client.query(class_name)
   end
 
   def self.before_save(*args)

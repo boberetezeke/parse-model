@@ -16,5 +16,10 @@ module MiniArel
     def execute
       @connection.execute(self)
     end
+
+    def query
+      ParseModel.log "SelectManager: query for #{@connection} on table: #{@table_name}"
+      @connection.query(@table_name)
+    end
   end
 end
