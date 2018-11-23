@@ -1,8 +1,6 @@
 class TestModel < ParseModel
-  class_name "TestModel"
+  table_name "TestModel"
 
-  attribute(:created_at,    :date)
-  attribute(:updated_at,    :date)
   attribute(:integer_value, :integer)
   attribute(:string_value,  :string)
   attribute(:boolean_value, :boolean)
@@ -11,7 +9,7 @@ class TestModel < ParseModel
 end
 
 class TestInstance < ParseModel
-  class_name "TestInstance"
+  table_name "TestInstance"
 
   attribute(:instance_integer_value, :integer)
 

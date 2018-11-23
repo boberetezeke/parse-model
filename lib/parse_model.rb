@@ -115,17 +115,13 @@ class ParseModel
       end
     end
 
-    def table_name
-      @class_name
-    end
-
     def get(object)
       if @type == :has_many
-        relation = MiniArel::Relation.new(klass, klass, @class_name)
+        relation = MiniArel::Relation.new(klass, klass, klass.parse_class_name)
         relation.where({foreign_key => object.id})
       else
         id = object.send(foreign_key)
-        relation = MiniArel::Relation.new(klass, klass, @class_name)
+        relation = MiniArel::Relation.new(klass, klass, klass.parse_class_name)
         relation.where({objectId: object.send(foreign_key)}).first
       end
     end
@@ -171,7 +167,12 @@ class ParseModel
 
   # methods for sub-classes
   def self.attribute(name, type, pointer_class: nil, camelized_name: nil)
-    @attributes ||= {}
+    if !@attributes
+      @attributes = {}
+      attribute :created_at, :datetime
+      attribute :updated_at, :datetime
+      attribute :object_id,  :datetime
+    end
     @attributes[name] = Attribute.new(name, type, pointer_class: pointer_class, camelized_name: camelized_name)
   end
 
@@ -187,13 +188,9 @@ class ParseModel
     attribute(association.foreign_key.to_sym, :pointer, pointer_class: self)
   end
 
-  def self.class_name(name)
+  def self.table_name(name)
     self.initialize
     @parse_class_name = name
-
-    attribute :created_at, :datetime
-    attribute :updated_at, :datetime
-    attribute :object_id,  :datetime
   end
 
   # accessor methods
@@ -206,7 +203,7 @@ class ParseModel
   end
 
   def self.parse_class_name
-    @parse_class_name
+    @parse_class_name || self.to_s
   end
 
   def self.camelize(symbol)
@@ -338,7 +335,7 @@ class ParseModel
 
   # query methods
   def self.where(*args)
-    MiniArel::Relation.new(self, self, @parse_class_name).where(*args)
+    MiniArel::Relation.new(self, self, parse_class_name).where(*args)
   end
 
   def self.find(id)
