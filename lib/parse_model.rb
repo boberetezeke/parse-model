@@ -386,7 +386,7 @@ class ParseModel
 
   def self.method_missing(sym, *args)
     if [:first, :last, :all, :count, :where, :limit, :order, :offset].include?(sym)
-      MiniArel::Relation.new(self, self, @parse_class_name).send(sym, *args)
+      MiniArel::Relation.new(self, self, parse_class_name).send(sym, *args)
     else
       super
     end
