@@ -6,13 +6,14 @@ class ParseModel
   include ActiveModel::Model
 
   class Attribute
-    attr_reader :name, :type
+    attr_reader :name, :type, :extra
 
-    def initialize(name, type, pointer_class: nil, camelized_name: nil)
+    def initialize(name, type, pointer_class: nil, camelized_name: nil, extra: nil)
       @name = name
       @type = type
       @pointer_class = pointer_class
       @camelized_name = camelized_name
+      @extra = extra
     end
 
     def camelized_name
@@ -26,7 +27,10 @@ class ParseModel
       return value if value.nil?
 
       if @type == :datetime || @type == :date
-        value.iso8601
+        {
+          "__type" => "Date",
+          "iso" => value.iso8601
+        }
       elsif @type == :integer
         if value == ""
           nil
@@ -35,8 +39,22 @@ class ParseModel
         end
       elsif @type == :pointer
         Parse::Pointer.new("className" => @pointer_class, "objectId" => value)
+      elsif @type == :boolean
+        value ? true : false
       else
         value
+      end
+    end
+
+    def migrate_value
+      if @type == :datetime || @type == :date
+        Time.now
+      elsif @type == :integer
+        0
+      elsif @type == :boolean
+        true
+      else
+        ""
       end
     end
 
@@ -44,7 +62,7 @@ class ParseModel
       return nil if value.nil?
 
       if @type == :datetime || @type == :date
-        Time.parse(value)
+        value.to_time
       elsif @type == :pointer
       #  value["className"].constantize.find(value["objectId"])
       #  value.className.constantize.find(value.parse_object_id)
@@ -94,7 +112,7 @@ class ParseModel
   class Association
     attr_reader :name, :type, :class_name
 
-    def initialize(container_klass, name, type, class_name: nil, foreign_key: foreign_key)
+    def initialize(container_klass, name, type, class_name: nil, foreign_key: nil)
       @name = name
       @type = type
       @container_klass = container_klass
@@ -120,9 +138,15 @@ class ParseModel
         relation = MiniArel::Relation.new(klass, klass, klass.parse_class_name)
         relation.where({foreign_key => object.id})
       else
-        id = object.send(foreign_key)
         relation = MiniArel::Relation.new(klass, klass, klass.parse_class_name)
         relation.where({objectId: object.send(foreign_key)}).first
+      end
+    end
+
+    def set(object, target)
+      if @type == :has_many
+      else
+        object.send("#{foreign_key}=", target.id)
       end
     end
   end
@@ -166,14 +190,14 @@ class ParseModel
   end
 
   # methods for sub-classes
-  def self.attribute(name, type, pointer_class: nil, camelized_name: nil)
+  def self.attribute(name, type, pointer_class: nil, camelized_name: nil, extra: nil)
     if !@attributes
       @attributes = {}
       attribute :created_at, :datetime
       attribute :updated_at, :datetime
       attribute :object_id,  :datetime
     end
-    @attributes[name] = Attribute.new(name, type, pointer_class: pointer_class, camelized_name: camelized_name)
+    @attributes[name] = Attribute.new(name, type, pointer_class: pointer_class, camelized_name: camelized_name, extra: extra)
   end
 
   def self.has_many(sym, **hargs)
@@ -185,7 +209,8 @@ class ParseModel
     @associations ||= {}
     association = Association.new(self, sym, :belongs_to, **hargs)
     @associations[sym] = association
-    attribute(association.foreign_key.to_sym, :pointer, pointer_class: self)
+    attribute(association.foreign_key.to_sym, :string)
+    # attribute(association.foreign_key.to_sym, :pointer, pointer_class: self)
   end
 
   def self.table_name(name)
@@ -384,6 +409,15 @@ class ParseModel
     obj
   end
 
+  def self.migrate
+    object = self.new
+    attributes.values.each do |attr|
+      object.send("#{attr.name}=", attr.migrate_value)
+    end
+    object.save
+    object.destroy
+  end
+
   def self.method_missing(sym, *args)
     if [:first, :last, :all, :count, :where, :limit, :order, :offset].include?(sym)
       MiniArel::Relation.new(self, self, parse_class_name).send(sym, *args)
@@ -473,10 +507,10 @@ class ParseModel
       attribute_sym = attribute_name.to_sym
 
       attribute = self.class.attributes[attribute_sym]
-      return (action == :set) ? attribute.set(@parse_model, value) : attribute.get(@parse_object) if attribute
+      return (action == :set) ? attribute.set(@parse_object, value) : attribute.get(@parse_object) if attribute
 
       association = self.class.associations[attribute_sym]
-      return (action == :set) ? association.set(value) : association.get(self) if association
+      return (action == :set) ? association.set(self, value) : association.get(self) if association
     end
 
     super(sym, *args, &block)
