@@ -107,6 +107,10 @@ class ParseModel
     def lteq(value)
       MiniArel::Nodes::LessThanOrEqual.new(MiniArel::Nodes::Symbol.new(name), MiniArel::Nodes::Literal.new(value))
     end
+
+    def regex(value)
+      MiniArel::Nodes::RegexMatch.new(MiniArel::Nodes::Symbol.new(name), MiniArel::Nodes::Literal.new(value))
+    end
   end
 
   class Association
@@ -267,6 +271,9 @@ class ParseModel
         elsif node.is_a?(MiniArel::Nodes::NotEqual)
           ParseModel.log "query.not_eq(#{symbol}, #{literal})"
           query.not_eq(symbol, literal)
+        elsif node.is_a?(MiniArel::Nodes::RegexMatch)
+          ParseModel.log "query.regex_match(#{symbol}, #{literal})"
+          query.regex(symbol, literal)
         elsif node.is_a?(MiniArel::Nodes::GreaterThan)
           ParseModel.log "query.greater_than(#{symbol}, #{literal})"
           query.greater_than(symbol, literal)
