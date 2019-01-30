@@ -66,6 +66,10 @@ module MiniArel
       execute
     end
 
+    def map
+      all.map
+    end
+
     alias load all
 
     def each
