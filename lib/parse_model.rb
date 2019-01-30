@@ -132,6 +132,10 @@ class ParseModel
       @klass || @klass = @class_name.constantize
     end
 
+    def macro
+      @type
+    end
+
     def foreign_key
       return @foreign_key if @foreign_key
       if @type == :has_many
@@ -374,7 +378,9 @@ class ParseModel
 
   # query methods
   def self.where(*args)
-    MiniArel::Relation.new(self, self, parse_class_name).where(*args)
+    relation = MiniArel::Relation.new(self, self, parse_class_name)
+    relation = relation.where(*args) if args != [{}]
+    relation
   end
 
   def self.find(id)
