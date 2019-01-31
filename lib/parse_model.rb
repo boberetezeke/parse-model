@@ -108,8 +108,8 @@ class ParseModel
       MiniArel::Nodes::LessThanOrEqual.new(MiniArel::Nodes::Symbol.new(name), MiniArel::Nodes::Literal.new(value))
     end
 
-    def regex(value)
-      MiniArel::Nodes::RegexMatch.new(MiniArel::Nodes::Symbol.new(name), MiniArel::Nodes::Literal.new(value))
+    def regex(value, options: nil)
+      MiniArel::Nodes::RegexMatch.new(MiniArel::Nodes::Symbol.new(name), MiniArel::Nodes::Literal.new(value), options: options)
     end
 
     def in(value)
@@ -281,7 +281,7 @@ class ParseModel
           query.not_eq(symbol, literal)
         elsif node.is_a?(MiniArel::Nodes::RegexMatch)
           ParseModel.log "query.regex_match(#{symbol}, #{literal})"
-          query.regex(symbol, literal)
+          query.regex(symbol, literal, options: node.options)
         elsif node.is_a?(MiniArel::Nodes::In)
           ParseModel.log "query.value_in(#{symbol}, #{literal})"
           query.value_in(symbol, literal)
