@@ -37,6 +37,8 @@ class ParseModel
         else
           value.to_i
         end
+      elsif @type == :string
+        value.to_s
       elsif @type == :pointer
         Parse::Pointer.new("className" => @pointer_class, "objectId" => value)
       elsif @type == :boolean
